@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 # ==============================================
-# 【你原版的归一化函数】完全一致
+# 【归一化函数】不变
 # ==============================================
 def pre_process_landmark(landmark_list):
     temp_landmark_list = copy.deepcopy(landmark_list)
@@ -30,51 +30,52 @@ def pre_process_landmark(landmark_list):
     return temp_landmark_list
 
 # ==============================================
-# 批量处理JSON → 输出CSV
+# 【已修改】支持：一张图两只手 + 两个标签
 # ==============================================
 def json_hand_landmarks_to_csv(json_path, output_csv="hand_dataset.csv"):
-    # 1. 读取JSON
     with open(json_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
     rows = []
 
-    # 2. 遍历每一条数据
     for key, item in data.items():
-        hand_landmarks_list = item.get("hand_landmarks", [])  # 可能是1只手 or 2只手
-        labels = item.get("labels", ["unknown"])
-        label = labels[0]  # 取第一个标签（call、1、2、rock...）
+        hand_landmarks_list = item.get("hand_landmarks", [])  # [手1, 手2]
+        labels = item.get("labels", [])                       # [标签1, 标签2]
 
-        # 遍历每一只手（支持单手+双手）
+        # 🔥 核心：第几只手 → 对应第几个标签
         for hand_idx, landmarks_21 in enumerate(hand_landmarks_list):
-            # 检查必须是21点
             if len(landmarks_21) != 21:
                 continue
 
-            # 3. 【核心】归一化处理 → 42维向量
+            # 🔥 关键修改：手0 → 标签0，手1 → 标签1
+            if hand_idx < len(labels):
+                label = labels[hand_idx]
+            else:
+                label = "unknown"  # 标签不够用时兜底
+
+            # 归一化
             norm_42 = pre_process_landmark(landmarks_21)
 
-            # 4. 拼装一行：标签 + 42个特征
+            # 拼接一行
             row = [label] + norm_42
             rows.append(row)
 
-    # 5. 构建CSV列名
-    columns = ["label"] + [f"x{i//2}_{i%2}" for i in range(42)]
+    # 列名
+    columns = ["label"] + [f"p{i}" for i in range(42)]
 
-    # 6. 保存CSV
+    # 保存CSV
     df = pd.DataFrame(rows, columns=columns)
     df.to_csv(output_csv, index=False, encoding="utf-8")
 
     print(f"✅ 处理完成！共 {len(rows)} 条手势数据")
     print(f"✅ 已保存到：{output_csv}")
-    print(f"✅ 格式：label + 42个归一化特征（手腕为原点）")
+    print(f"✅ 支持：一张图两只手，各自对应自己的标签！")
 
 # ==============================================
-# 【使用方法】
-# 把 your_data.json 换成你的JSON路径
+# 使用方法
 # ==============================================
 if __name__ == "__main__":
     json_hand_landmarks_to_csv(
-        json_path="/home/spring/hand/data/json/train/peace_inverted.json",  # 你的JSON文件
-        output_csv="/home/spring/hand/data/21point/peace_inverted.csv"  # 输出CSV
+        json_path="/home/spring/hand/data/json/train/peace_inverted.json",
+        output_csv="/home/spring/hand/data/21point/peace_inverted.csv"
     )
