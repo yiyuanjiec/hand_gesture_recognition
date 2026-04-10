@@ -1,4 +1,3 @@
-[[Japanese](README.md)/English]
 
 > **Note**
 > <br>I created a repository of model zoo for keypoint classification.
